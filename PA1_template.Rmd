@@ -1,72 +1,93 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Monitoring Activity"
+keep_md: yes
 ---
-
+  
+### Importing Libraries
+```{r}
 library(ggplot2)
+```
+  
+### Processing Data
+```{r}
+if(!file.exists("activity.zip")){
+  download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip",destfile = "./activity.zip")
+}
+if(!file.exists("activity.csv")){unzip("activity.zip")}
+activity <- read.csv("activity.csv")
+```
 
-# Downloading the data
-setwd("/Users/manaspande/Desktop/RStudio Workspace/RepData_PeerAssessment1-master")
-download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", "/Users/manaspande/Desktop/RStudio Workspace/RepData_PeerAssessment1-master/activity_data.zip")
+### Histogram of Total Steps per Day
+```{r}
+stepsPerDay <- data.frame(tapply(activity$steps, activity$date, FUN=sum, na.rm=TRUE))
+stepsPerDay$date <- rownames(stepsPerDay)
+rownames(stepsPerDay) <- NULL
+colnames(stepsPerDay)[1] <- c("steps")
+```
+OR, the above process could have been done in one step: "stepsPerDay <- aggregate(steps~date, activity, sum, na.rm=TRUE)"
+Now to plotting the histogram of the total steps per day:
+```{r}
+hist(stepsPerDay$steps, main = "Total Steps per Day", xlab = "Steps", col = "darkblue")
+```
 
-# Loading and preprocessing the data
-unzip("/Users/manaspande/Desktop/RStudio Workspace/RepData_PeerAssessment1-master/activity_data.zip", exdir = "/Users/manaspande/Desktop/RStudio Workspace/RepData_PeerAssessment1-master/")
-activity <- read.csv("/Users/manaspande/Desktop/RStudio Workspace/RepData_PeerAssessment1-master/activity.csv")
+Mean and Median of the total steps per day
+```{r}
+mean(stepsPerDay$steps)
+median(stepsPerDay$steps)
+```
 
-# Histogram of the total number of steps taken each day
-dailySteps <- aggregate(steps~date,activity,sum,na.rm=TRUE)
-png("plot1.png")
-hist(dailySteps$steps,xlab = "Total number of steps taken per day",main = "Histogram of Daily Steps")
-dev.off()
-
-# Mean and Median number of steps taken per day
-meanDailySteps <- mean(dailySteps$steps)
-medianDailySteps <- median(dailySteps$steps)
-
-# Time series plot of the average number of steps taken per day
+### Time series plot of the average number of steps taken per day
+```{r}
 intervalSteps <- aggregate(steps~interval,activity,mean,na.rm=TRUE)
-png("plot2.png")
 plot(steps~interval,intervalSteps,type="l")
-dev.off()
+```
 
-# Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
 maxStepsIndex <- which.max(intervalSteps$steps)
 intervalWithMaxSteps <- intervalSteps[maxStepsIndex,]$interval
+intervalWithMaxSteps
+```
 
-# Total number of NAs in the dataset
+Total number of NAs in the dataset
+```{r}
 totalNA <- sum(is.na(activity$steps))
+totalNA
+```
 
-# New dataset with NA values filled in with the mean value for that interval
+New dataset with NA values filled in with the mean value for that interval
+```{r}
 imputedSteps <- ifelse(is.na(activity$steps), round(intervalSteps$steps[match(activity$interval, intervalSteps$interval)],0), activity$steps)
 newActivityDataset <- data.frame(steps=imputedSteps,date=activity$date,interval=activity$interval)
+```
 
-# Histogram of the total number of steps taken each day for the new dataset
+### Histogram of the total number of steps taken each day for the new dataset
+```{r}
 newDailySteps <- aggregate(steps~date,newActivityDataset,sum)
-png("plot3.png")
 hist(newDailySteps$steps,xlab = "Total number of steps taken per day",main = "Histogram of Total Daily Steps for the New Dataset")
-dev.off()
+```
 
-# Mean and Median number of steps taken per day for the new dataset
+Mean and Median number of steps taken per day for the new dataset
+```{r}
 newMeanDailySteps <- mean(newDailySteps$steps)
+newMeanDailySteps
 newMedianDailySteps <- median(newDailySteps$steps)
+newMedianDailySteps
+```
 
-# Imputing missing data does seem to have a small effect on the mean and median values. Mean value went from 10766.19
-# to 10765.64 while the median value went from 10765 to 10762
+Imputing missing data does seem to have a small effect on the mean and median values. Mean value went from 10766.19 to 10765.64 while the median value went from 10765 to 10762.
 
-# Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given
-# date is a weekday or weekend day.
+Creating a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day
+```{r}
 newActivityDataset$RealDate <- as.Date(newActivityDataset$date, format = "%Y-%m-%d")
 newActivityDataset$Weekday <- weekdays(newActivityDataset$RealDate)
 newActivityDataset$DayType <- ifelse(newActivityDataset$Weekday=='Saturday' | newActivityDataset$Weekday=='Sunday', 'Weekend','Weekday')
+```
 
-# Two time series plot of the 5-minute interval (x) and the average number of steps taken averaged across weekdays
-# or weekends (y)
+### Two time series plot of the 5-minute interval (x) and the average number of steps taken averaged across weekdays or weekends (y)
+```{r}
 StepsPerTimeDT <- aggregate(steps~interval+DayType,data=newActivityDataset,FUN=mean,na.action=na.omit)
 StepsPerTimeDT$time <- intervalSteps$interval/100
-png("plot4.png")
 j <- ggplot(StepsPerTimeDT, aes(time, steps))
 j+geom_line(col="black")+ggtitle("Weekdays v/s Weekends")+xlab("Time")+ylab("Steps")+theme(plot.title = element_text(face="bold", size=12))+facet_grid(DayType ~ .)
-dev.off()
-
+```
